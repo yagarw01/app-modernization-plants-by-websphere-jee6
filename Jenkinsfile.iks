@@ -1,30 +1,30 @@
 // Pod Template
 def cloud = env.CLOUD ?: "kubernetes"
-def serviceAccount = env.SERVICE_ACCOUNT ?: "jnkns-for-cicd-lab-jenkins"
-def registryCredsID = env.REGISTRY_CREDENTIALS ?: "reg-creds"
 def namespace = env.NAMESPACE ?: "default"
 def registry = env.REGISTRY ?: "us.icr.io"
 def majorPrefix = env.MAJOR_PREFIX ?: "1.0.0"
 def registryNS = env.REGISTRY_NS ?: "/appmod_ss/invalid"
 def releaseName = "pbw-liberty-mariadb"
 def podLabel = "agent-" + releaseName
+def clusterCredsID = env.CLUSTER_CREDENTIALS ?: "cluster-creds"
+def clusterName = env.CLUSTER_NAME ?: "mycluster"
+def region = env.REGION ?: "us-south"
+def resourceGroup = env.RESOURCE_GROUP ?: "default"
 
 
-podTemplate(label: podLabel, cloud: cloud, serviceAccount: serviceAccount, namespace: namespace, envVars: [
+podTemplate(label: podLabel, namespace: namespace, envVars: [
         envVar(key: 'REGISTRY_NS', value: registryNS),
         envVar(key: 'DEPLOYMENT_NS', value: namespace),
         envVar(key: 'REGISTRY', value: registry),
         envVar(key: 'RELEASE_NAME', value: releaseName),
-        envVar(key: 'MAJOR_PREFIX', value: majorPrefix)
-    ],
-    volumes: [
-        hostPathVolume(hostPath: '/etc/docker/certs.d', mountPath: '/etc/docker/certs.d'),
-        hostPathVolume(hostPath: '/var/run/docker.sock', mountPath: '/var/run/docker.sock')
+        envVar(key: 'MAJOR_PREFIX', value: majorPrefix),
+        envVar(key: 'CLUSTER_NAME', value: clusterName),
+        envVar(key: 'REGION', value: region),
+        envVar(key: 'RESOURCE_GROUP', value: resourceGroup)
     ],
     containers: [
-        containerTemplate(name: 'maven', image: 'maven:3-alpine', ttyEnabled: true, command: 'cat'),
-        containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl', ttyEnabled: true, command: 'cat'),
-        containerTemplate(name: 'docker' , image: 'docker:17.06.1-ce', ttyEnabled: true, command: 'cat')
+        containerTemplate(name: 'maven', image: 'maven:3-alpine', ttyEnabled: true),
+        containerTemplate(name: 'ibmcloud', image: 'ibmcom/ibm-cloud-developer-tools-amd64', ttyEnabled: true)
   ]) {
 
     node(podLabel) {
@@ -37,41 +37,47 @@ podTemplate(label: podLabel, cloud: cloud, serviceAccount: serviceAccount, names
                """
             }
         }
-        container('docker') {
+        container('build') {
             stage('Build Docker Image') {
                 sh """
                 #!/bin/bash
-                ping -c 4 www.ibm.com
-                docker build -t ${env.REGISTRY}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER} .
+                echo "docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} ."
+                sh 'docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} .'
                 """
             }
             stage('Push Docker Image to Registry') {
-               withCredentials([usernamePassword(credentialsId: registryCredsID,
-                                               usernameVariable: 'USERNAME',
-                                               passwordVariable: 'PASSWORD')]) {
-                   sh """
-                   #!/bin/bash
-                   docker login -u ${USERNAME} -p ${PASSWORD} ${env.REGISTRY}
-                   docker push ${env.REGISTRY}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
-                   """
-               }
+                withCredentials([usernamePassword(credentialsId: clusterCredsID,
+                                          usernameVariable: 'USERNAME',
+                                          passwordVariable: 'PASSWORD')]) {
+                 sh """#!/bin/bash
+                 docker login -u ${USERNAME} -p ${PASSWORD} ${env.REGISTRY_URL}
+                 docker push ${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                 """
+                }
             }
         }
-        container('kubectl') {
+        container('ibmcloud') {
             stage('Deploy new Docker Image') {
-                sh """
-                #!/bin/bash
-                DEPLOYMENT=`kubectl --namespace=${env.DEPLOYMENT_NS} get deployments -l app=pbw-liberty-mariadb,component=web-app,release=${env.RELEASE_NAME} --no-headers  -o name`
-                kubectl --namespace=${env.DEPLOYMENT_NS} get \${DEPLOYMENT} --no-headers -o custom-columns=":metadata.name"
-                if [ \${?} -ne "0" ]; then
-                    # No deployment to update
-                    echo 'No deployment to update'
-                    exit 1
-                fi
-                # Update Deployment
-                kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
-                kubectl --namespace=${env.DEPLOYMENT_NS} rollout status \${DEPLOYMENT}
-                """
+                withCredentials([usernamePassword(credentialsId: clusterCredsID,
+                                             usernameVariable: 'USERNAME',
+                                             passwordVariable: 'PASSWORD')]) {
+                    sh """#!/bin/bash
+                    ibmcloud login --apikey ${PASSWORD} -r ${env.REGION} -g ${env.RESOURCE_GROUP}
+                    eval \$(ibmcloud ks cluster-config --cluster ${env.CLUSTER_NAME} --export)
+                    DEPLOYMENT=`kubectl --namespace=${env.DEPLOYMENT_NS} get deployments -l app=pbw-liberty-mariadb,component=web-app,release=${env.RELEASE_NAME} --no-headers  -o name`
+                    if [ -z "\$DEPLOYMENT"  ]; then
+                       echo "FATAL ERROR: Deployment not found, exiting pipeline"
+                       exit 22
+                    else
+                       echo "Existing deployment found, uodating to point to image just created "
+                    fi
+                    kubectl --namespace=${env.DEPLOYMENT_NS} get \${DEPLOYMENT} --no-headers -o custom-columns=":metadata.name"
+            
+                    # Update Deployment
+                    kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                    kubectl --namespace=${env.DEPLOYMENT_NS} rollout status \${DEPLOYMENT}
+                    """
+                }
             }
         }
     }
