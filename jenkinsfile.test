@@ -1,0 +1,23 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Test') {
+      steps {
+        container('nodejs') {
+          sh "node --version"
+        }
+      }
+    }
+
+    stage('Build') {
+      steps {
+        container('build') {
+            sh 'echo \'FROM python:3-alpine\' >> Dockerfile'
+            sh 'echo \'CMD ["python", "-c", "print(\'hello\')"]\' >> Dockerfile'
+            sh 'docker build -t application .'
+        }
+      }
+    }
+  }
+}
