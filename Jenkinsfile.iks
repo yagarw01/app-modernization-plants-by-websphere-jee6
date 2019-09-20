@@ -11,6 +11,8 @@
 // def region = env.REGION ?: "us-south"
 // def resourceGroup = env.RESOURCE_GROUP ?: "default"
 
+def MAJOR_PREFIX = "1.0.0"
+
 pipeline {
   agent any
 
