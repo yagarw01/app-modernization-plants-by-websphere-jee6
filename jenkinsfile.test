@@ -2,22 +2,18 @@ pipeline {
   agent any
 
   stages {
-    stage('Test') {
+
+    stage('Build application binary') {
       steps {
-        container('nodejs') {
-          sh "node --version"
+        git ("https://github.com/odrodrig/app-modernization-plants-by-websphere-jee6.git")
+        container('maven') {
+            sh """
+            #!/bin/bash
+            mvn -B -DskipTests clean package
+            """            
         }
       }
     }
 
-    stage('Build') {
-      steps {
-        container('build') {
-            sh 'echo \'FROM python:3-alpine\' >> Dockerfile'
-            sh 'echo \'CMD ["python", "-c", "print(\'hello\')"]\' >> Dockerfile'
-            sh 'docker build -t application .'
-        }
-      }
-    }
   }
 }

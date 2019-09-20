@@ -57,11 +57,11 @@ pipeline {
                     echo "RELEASE_NAME set to ${RELEASE_NAME}"
                  fi
                 
-                 if [ -z "${REGISTRY_NS}"  ]; then
-                    echo "FATAL ERROR: REGISTRY_NS undefined, exiting pipeline"
+                 if [ -z "${REGISTRY_URL}"  ]; then
+                    echo "FATAL ERROR: REGISTRY_URL undefined, exiting pipeline"
                     exit 22
                  else 
-                    echo "REGISTRY_NS set to ${REGISTRY_NS}"
+                    echo "REGISTRY_URL set to ${REGISTRY_URL}"
                  fi
                 '''
             }
@@ -79,57 +79,54 @@ pipeline {
       }
     }
 
-    // stage('Build and Push docker image') {
-    //   steps {
-    //     container('build') {
-    //        steps {
-    //             sh """
-    //             #!/bin/bash
-    //             echo "docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} ."
-    //             sh 'docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} .'
-    //             """
-    //         }
+    stage('Build and Push docker image') {
+      steps {
+        container('build') {
+            sh """
+            #!/bin/bash
+            echo "docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} ."
+            sh 'docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} .'
+            """
 
-    //         steps{
-    //             withCredentials([usernamePassword(credentialsId: clusterCredsID,
-    //                                       usernameVariable: 'USERNAME',
-    //                                       passwordVariable: 'PASSWORD')]) {
-    //              sh """#!/bin/bash
-    //              docker login -u ${USERNAME} -p ${PASSWORD} ${env.REGISTRY_URL}
-    //              docker push ${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
-    //              """
-    //             }
-    //         }
-    //     }
-    //   }
-    // }
-
-    // stage('Deploy to kubernetes') {
-    //   steps {
-    //     container('ibmcloud') {
-    //         withCredentials([usernamePassword(credentialsId: clusterCredsID,
-    //                                          usernameVariable: 'USERNAME',
-    //                                          passwordVariable: 'PASSWORD')]) {
-    //             sh """#!/bin/bash
-    //             ibmcloud login --apikey ${PASSWORD} -r ${env.REGION} -g ${env.RESOURCE_GROUP}
-    //             eval \$(ibmcloud ks cluster-config --cluster ${env.CLUSTER_NAME} --export)
-    //             DEPLOYMENT=`kubectl --namespace=${env.DEPLOYMENT_NS} get deployments -l app=pbw-liberty-mariadb,component=web-app,release=${env.RELEASE_NAME} --no-headers  -o name`
-    //             if [ -z "\$DEPLOYMENT"  ]; then
-    //                 echo "FATAL ERROR: Deployment not found, exiting pipeline"
-    //                 exit 22
-    //             else
-    //                 echo "Existing deployment found, uodating to point to image just created "
-    //             fi
-    //             kubectl --namespace=${env.DEPLOYMENT_NS} get \${DEPLOYMENT} --no-headers -o custom-columns=":metadata.name"
+            withCredentials([usernamePassword(credentialsId: clusterCredsID,
+                                          usernameVariable: 'USERNAME',
+                                          passwordVariable: 'PASSWORD')]) {
+                sh """#!/bin/bash
+                docker login -u ${USERNAME} -p ${PASSWORD} ${env.REGISTRY_URL}
+                docker push ${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                """
+            }
+        }
         
-    //             # Update Deployment
-    //             kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
-    //             kubectl --namespace=${env.DEPLOYMENT_NS} rollout status \${DEPLOYMENT}
-    //             """
-    //         }
-    //     }
-    //   }
-    // }
+      }
+    }
+
+    stage('Deploy to kubernetes') {
+      steps {
+        container('ibmcloud') {
+            withCredentials([usernamePassword(credentialsId: clusterCredsID,
+                                             usernameVariable: 'USERNAME',
+                                             passwordVariable: 'PASSWORD')]) {
+                sh """#!/bin/bash
+                ibmcloud login --apikey ${PASSWORD} -r ${env.REGION} -g ${env.RESOURCE_GROUP}
+                eval \$(ibmcloud ks cluster-config --cluster ${env.CLUSTER_NAME} --export)
+                DEPLOYMENT=`kubectl --namespace=${env.DEPLOYMENT_NS} get deployments -l app=pbw-liberty-mariadb,component=web-app,release=${env.RELEASE_NAME} --no-headers  -o name`
+                if [ -z "\$DEPLOYMENT"  ]; then
+                    echo "FATAL ERROR: Deployment not found, exiting pipeline"
+                    exit 22
+                else
+                    echo "Existing deployment found, uodating to point to image just created "
+                fi
+                kubectl --namespace=${env.DEPLOYMENT_NS} get \${DEPLOYMENT} --no-headers -o custom-columns=":metadata.name"
+        
+                # Update Deployment
+                kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${env.MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                kubectl --namespace=${env.DEPLOYMENT_NS} rollout status \${DEPLOYMENT}
+                """
+            }
+        }
+      }
+    }
 
   }
 }
