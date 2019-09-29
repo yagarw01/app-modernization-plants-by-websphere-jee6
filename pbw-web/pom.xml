@@ -93,6 +93,21 @@
 					<warName>pbw-web</warName>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<configuration>
+					<failOnViolation>false</failOnViolation> <!-- this is actually true by default, but can be disabled -->
+					<printFailingErrors>true</printFailingErrors>
+				</configuration>
+				<executions>
+				<execution>
+					<goals>
+					<goal>check</goal>
+					</goals>
+				</execution>
+				</executions>
+			</plugin>
 		</plugins>
 		<testSourceDirectory>./src/test</testSourceDirectory>
 	</build>
@@ -107,6 +122,10 @@
 					<doctitle>PlantsByWebSphere Util library</doctitle>
 				</configuration>
 			</plugin>
+			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+            </plugin>
 		</plugins>
 	</reporting>
 </project>
