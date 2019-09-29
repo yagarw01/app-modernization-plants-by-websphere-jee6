@@ -1,11 +1,12 @@
-def MAJOR_PREFIX = "1.0.0"
-def REGISTRY_URL = "us.icr.io"
-def RESOURCE_GROUP = "default"
-def clusterCredsID = "cluster-creds"
-def DEPLOYMENT_NS = "default"
-def RELEASE_NAME = "pbw-liberty-mariadb"
-
 pipeline {
+    environment {
+      MAJOR_PREFIX = "1.0.0"
+      REGISTRY_URL = "us.icr.io"
+      RESOURCE_GROUP = "default"
+      clusterCredsID = "cluster-creds"
+      DEPLOYMENT_NS = "default"
+      RELEASE_NAME = "pbw-liberty-mariadb"
+  }
   agent any
 
   stages {
@@ -30,32 +31,32 @@ pipeline {
                  else 
                     echo "REGION set to ${REGION}"
                  fi
-                 if [ -z "${RESOURCE_GROUP}"  ]; then
+                 if [ -z "$RESOURCE_GROUP"  ]; then
                     echo "FATAL ERROR: RESOURCE_GROUP undefined, exiting pipeline"
                     exit 22
                  else 
-                    echo "RESOURCE_GROUP set to ${RESOURCE_GROUP}"
+                    echo "RESOURCE_GROUP set to $RESOURCE_GROUP"
                  fi
               
-                 if [ -z "${DEPLOYMENT_NS}"  ]; then
+                 if [ -z "$DEPLOYMENT_NS"  ]; then
                     echo "FATAL ERROR: DEPLOYMENT_NS undefined, exiting pipeline"
                     exit 22
                  else 
-                    echo "DEPLOYMENT_NS set to ${DEPLOYMENT_NS}"
+                    echo "DEPLOYMENT_NS set to $DEPLOYMENT_NS"
                  fi
                 
-                 if [ -z "${RELEASE_NAME}"  ]; then
+                 if [ -z "$RELEASE_NAME"  ]; then
                     echo "FATAL ERROR: RELEASE_NAME undefined, exiting pipeline"
                     exit 22
                  else 
-                    echo "RELEASE_NAME set to ${RELEASE_NAME}"
+                    echo "RELEASE_NAME set to $RELEASE_NAME"
                  fi
                 
-                 if [ -z "${REGISTRY_URL}"  ]; then
+                 if [ -z "$REGISTRY_URL"  ]; then
                     echo "FATAL ERROR: REGISTRY_URL undefined, exiting pipeline"
                     exit 22
                  else 
-                    echo "REGISTRY_URL set to ${REGISTRY_URL}"
+                    echo "REGISTRY_URL set to $REGISTRY_URL"
                  fi
                 '''
             }
@@ -78,8 +79,8 @@ pipeline {
         container('build') {
             sh """
             #!/bin/bash
-            echo "docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/${env.USER}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} ."
-            docker build -t ${REGISTRY_URL}/${REGISTRY_NS}/${env.USER}/pbw-mariadb-web:${MAJOR_PREFIX}.${BUILD_NUMBER} .
+            echo "docker build -t $REGISTRY_URL/${REGISTRY_NS}/${env.USER}/pbw-mariadb-web:$MAJOR_PREFIX.${BUILD_NUMBER} ."
+            docker build -t $REGISTRY_URL/${REGISTRY_NS}/${env.USER}/pbw-mariadb-web:$MAJOR_PREFIX.${BUILD_NUMBER} .
             """
 
             withCredentials([usernamePassword(credentialsId: clusterCredsID,
@@ -87,8 +88,8 @@ pipeline {
                                           passwordVariable: 'PASSWORD')]) {
                 sh """
                 #!/bin/bash
-                docker login -u ${USERNAME} -p ${PASSWORD} ${REGISTRY_URL}
-                docker push ${REGISTRY_URL}/${env.REGISTRY_NS}/${env.USER}/pbw-mariadb-web:${MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                docker login -u ${USERNAME} -p ${PASSWORD} $REGISTRY_URL
+                docker push $REGISTRY_URL/${env.REGISTRY_NS}/${env.USER}/pbw-mariadb-web:$MAJOR_PREFIX.${env.BUILD_NUMBER}
                 """
             }
         }
@@ -105,7 +106,7 @@ pipeline {
                 sh """
                 #!/bin/bash
                 ibmcloud config --check-version=false
-                ibmcloud login --apikey ${PASSWORD} -r ${env.REGION} -g ${env.RESOURCE_GROUP}
+                ibmcloud login --apikey ${PASSWORD} -r ${env.REGION} -g $RESOURCE_GROUP
                 ibmcloud ks cluster-config --cluster ${env.CLUSTER_NAME} --export
                 DEPLOYMENT=`kubectl --namespace=${env.DEPLOYMENT_NS} get deployments -l app=pbw-liberty-mariadb,component=web-app,release=${env.RELEASE_NAME} --no-headers  -o name`
                 if [ -z "\$DEPLOYMENT"  ]; then
@@ -117,7 +118,7 @@ pipeline {
                 kubectl --namespace=${env.DEPLOYMENT_NS} get \${DEPLOYMENT} --no-headers -o custom-columns=":metadata.name"
         
                 # Update Deployment
-                kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY_URL}/${env.REGISTRY_NS}/${env.USER}/pbw-mariadb-web:${MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                kubectl --namespace=${env.DEPLOYMENT_NS} set image \${DEPLOYMENT} ${env.RELEASE_NAME}-liberty=${env.REGISTRY_URL}/${env.REGISTRY_NS}/${env.USER}/pbw-mariadb-web:$MAJOR_PREFIX.${env.BUILD_NUMBER}
                 kubectl --namespace=${env.DEPLOYMENT_NS} rollout status \${DEPLOYMENT}
                 """
             }
