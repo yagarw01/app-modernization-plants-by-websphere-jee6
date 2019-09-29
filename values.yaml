@@ -1,0 +1,9 @@
+master:
+  installPlugins:
+  - kubernetes:1.19.0
+  - workflow-job:2.35
+  - workflow-aggregator:2.6
+  - credentials-binding:1.19
+  - git:3.11.0
+persistence:
+  existingClaim: jenkins

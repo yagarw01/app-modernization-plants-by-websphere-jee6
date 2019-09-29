@@ -1,19 +1,9 @@
-// Pod Template
-// def cloud = env.CLOUD ?: "kubernetes"
-// def namespace = env.NAMESPACE ?: "default"
-// def registry = env.REGISTRY ?: "us.icr.io"
-// def majorPrefix = env.MAJOR_PREFIX ?: "1.0.0"
-// def registryNS = env.REGISTRY_NS ?: "/appmod_ss/invalid"
-// def releaseName = "pbw-liberty-mariadb"
-// def podLabel = "default"
-// def clusterName = env.CLUSTER_NAME ?: "mycluster"
-// def region = env.REGION ?: "us-south"
-// def resourceGroup = env.RESOURCE_GROUP ?: "default"
-
 def MAJOR_PREFIX = "1.0.0"
 def REGISTRY_URL = "us.icr.io"
 def RESOURCE_GROUP = "default"
 def clusterCredsID = "cluster-creds"
+def DEPLOYMENT_NS = "default"
+def RELEASE_NAME = "pbw-liberty-mariadb"
 
 pipeline {
   agent any
@@ -97,8 +87,8 @@ pipeline {
                                           passwordVariable: 'PASSWORD')]) {
                 sh """
                 #!/bin/bash
-                docker login -u ${USERNAME} -p ${PASSWORD} ${env.REGISTRY_URL}
-                docker push ${env.REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${env.BUILD_NUMBER}
+                docker login -u ${USERNAME} -p ${PASSWORD} ${REGISTRY_URL}
+                docker push ${REGISTRY_URL}/${env.REGISTRY_NS}/pbw-mariadb-web:${MAJOR_PREFIX}.${env.BUILD_NUMBER}
                 """
             }
         }

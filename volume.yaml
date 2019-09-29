@@ -1,0 +1,31 @@
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+ name: jenkins-pv
+spec:
+ claimRef:
+   namespace: default
+   name: jenkins
+ capacity:
+   storage: 8Gi
+ accessModes:
+   - ReadWriteOnce
+ persistentVolumeReclaimPolicy: Retain
+ hostPath:
+   path: "/mnt/k8s_volume/jenkins_home"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    volume.beta.kubernetes.io/storage-class: ""
+  name: jenkins
+  labels:
+    app: jenkins-pv
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
