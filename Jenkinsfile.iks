@@ -2,7 +2,7 @@ pipeline {
     environment {
       MAJOR_PREFIX = "1.0.0"
       REGISTRY_URL = "us.icr.io"
-      RESOURCE_GROUP = "default"
+      RESOURCE_GROUP = "Default"
       clusterCredsID = "cluster-creds"
       DEPLOYMENT_NS = "default"
       RELEASE_NAME = "pbw-liberty-mariadb"

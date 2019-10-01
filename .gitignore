@@ -8,6 +8,7 @@
 .project
 **/*.tgz
 .vscode/
+target/
 
 # Allow
 !target/*.war
